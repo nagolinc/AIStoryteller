@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <title>Chatbot Interface</title>
+</head>
+
+<body>
+    <div id="chat-area">
+        <!-- Chat messages will appear here -->
+    </div>
+    <input type="text" id="user-input" style="width: 400px;" onkeydown="if(event.keyCode === 13) sendMessage();">
+    <button onclick="sendMessage()">Send</button>
+    <div id="options-area">
+        <!-- Option buttons will appear here -->
+    </div>
+
+    <script>
+
+
+        const username = "user"
+        //randomly generate a story id
+        const story_id = "story" + Math.floor(Math.random() * 1000000);
+
+
+        async function fetchChatData(userInput) {
+            const res = await fetch('/chat', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    user_input: userInput,
+                    username: username,
+                    story_id: story_id
+                })
+            });
+            return res.json();
+        }
+
+        function setOption(optionText) {
+            document.getElementById("user-input").value = optionText;
+            sendMessage();
+        }
+
+        async function sendMessage() {
+            const userInput = document.getElementById("user-input").value;
+
+
+            const chatArea = document.getElementById("chat-area");
+
+            //add user input to chat area
+            const userDiv = document.createElement("div");
+            userDiv.textContent = "USER: "+userInput;
+            //userDiv.style.textAlign = "right";
+            chatArea.appendChild(userDiv);
+
+
+            const thinkingDiv = document.createElement("div");
+            thinkingDiv.textContent = "Thinking...";
+            chatArea.appendChild(thinkingDiv);
+            console.log('added thinking div')
+
+
+
+            const data = await fetchChatData(userInput);
+
+
+
+
+            const descriptionDiv = document.createElement("div");
+            descriptionDiv.textContent = data.sceneDescription;
+            chatArea.appendChild(descriptionDiv);
+
+            const img = document.createElement("img");
+            img.src = data.image_path;
+            //set alt text as data.image
+            img.alt = data.imageDescription;
+            //we probably need do do somethign to display the text when user hovers over it too
+            img.title = data.imageDescription;
+
+            chatArea.appendChild(img);
+
+            const optionsArea = document.getElementById("options-area");
+            optionsArea.innerHTML = ""; // Clear previous options
+
+            data.options.forEach(option => {
+                const optionButton = document.createElement("button");
+                optionButton.textContent = option;
+                optionButton.onclick = () => setOption(option);
+                optionsArea.appendChild(optionButton);
+            });
+
+            document.getElementById("user-input").value = ""; // Clear the textbox
+
+            chatArea.removeChild(thinkingDiv); // Remove the "thinking" symbol
+
+
+            //scroll to bottom
+            console.log('scrolling to bottom')
+            setTimeout(() => {
+                window.scrollTo(0, document.body.scrollHeight); // Scroll to the bottom of the page
+            }, 100);
+        }
+
+    </script>
+</body>
+
+</html>
