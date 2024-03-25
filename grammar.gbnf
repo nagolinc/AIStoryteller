@@ -1,7 +1,7 @@
 root ::= Story
-Story ::= "{"   ws   "\"summary\":"   ws   string   ","   ws   "\"sceneDescription\":"   ws   string   ","   ws   "\"imageDescription\":"   ws   string   ","   ws   "\"options\":"   ws   stringlist   "}"
-string ::= "\"" (jsonchar)* "\""
-jsonchar ::= [^\\\"\n] | "\\\"" | "\\\\" | "\\n"
+Story ::= "{"   ws   "\"summary\":"   ws   string   ","   ws   "\"sceneAction\":"   ws   string   ","   ws   "\"imageDescription\":"   ws   string   "," ws   "\"musicDescription\":"   ws   string   ","   ws   "\"options\":"   ws   stringlist   "}"
+string ::= "\"" (jsonchar)+ "\""
+jsonchar ::= [a-zA-Z0-9 .?!*,']
 hex ::= [0-9a-fA-F]
 ws ::= [ \t\n]*
 stringlist ::= "[" ws string "," ws string "," ws string ws "]"

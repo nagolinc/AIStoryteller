@@ -2,108 +2,598 @@
 <html>
 
 <head>
-    <title>Chatbot Interface</title>
+  <title>Chatbot Interface</title>
 </head>
 
+<style>
+  #movie-and-options-holder {
+    position: relative;
+  }
+
+  #movie-area-options {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+  }
+
+  #movie-and-options-holder {
+    position: relative;
+    width: 768px;
+    /* same as the movie width */
+    height: 424px;
+    /* same as the movie height */
+  }
+
+  #movie-area-options {
+    position: absolute;
+    bottom: 0;
+    /*left: 50%;
+    transform: translateX(-50%);*/
+    z-index: 1;
+  }
+
+  #option1,
+  #option2,
+  #option3,
+  #chosen-option {
+    background-color: rgba(255, 255, 255, 0.5);
+    /* white with 50% opacity */
+    text-align: left;
+  }
+
+  #movie-caption {
+    position: absolute;
+    box-sizing: border-box;
+    top: 0;
+    width: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+    /* black with 50% opacity */
+    color: white;
+    padding: 10px;
+  }
+
+  #text-input {
+    width: 50%;
+  }
+</style>
+
 <body>
-    <div id="chat-area">
-        <!-- Chat messages will appear here -->
+  <div id="chat-area" style="display:None">
+    <!-- Chat messages will appear here -->
+  </div>
+
+  <textarea id="user-input" style="width: 768px; height: 100px;"
+    onkeydown="if(event.keyCode === 13){sendMessage0();}"></textarea>
+  <br>
+  <button onclick="sendMessage0()">Send</button>
+  <button id="randomize" onclick="randomizeStoryId()">Randomize</button>
+  Auto: <input type="checkbox" id="auto">
+
+  <div id="options-area">
+    <!-- Option buttons will appear here -->
+  </div>
+
+  <br /><br />
+
+  <div id="movie-area" style="display:none;">
+    <div id="movie-and-options-holder">
+      <!-- Movie will appear here -->
+      <video id="movie" width="768" height="424">
+        <!-- Add your video source here -->
+        <source src="movie.mp4" type="video/mp4" />
+      </video>
+
+      <!-- Option buttons -->
+      <div id="movie-caption">
+        <!-- Caption will appear here -->
+      </div>
+
+      <div id="movie-area-options">
+        <button id="option1">Option 1</button>
+        <button id="option2">Option 2</button>
+        <button id="option3">Option 3</button>
+        <input type=text id="text-input" style="width: 400px;display: none;"
+          onkeydown="if(event.keyCode === 13){sendMessage1();}">
+        <button id="chosen-option" style="display: none;"></button>
+      </div>
     </div>
-    <input type="text" id="user-input" style="width: 400px;" onkeydown="if(event.keyCode === 13) sendMessage();">
-    <button onclick="sendMessage()">Send</button>
-    <div id="options-area">
-        <!-- Option buttons will appear here -->
-    </div>
 
-    <script>
+    <br />
+
+    <!-- Music player -->
+    <audio id="music" controls volume="0.5">
+      <!-- Add your audio source here -->
+      <source src="music.mp3" type="audio/mpeg" />
+    </audio>
+
+    <br />
+
+    <!-- Speech player -->
+    <audio id="speech" controls>
+      <!-- Add your audio source here -->
+      <source src="speech.mp3" type="audio/mpeg" />
+    </audio>
+
+    <br /><br />
+    <!-- Fullscreen button -->
+    <button id="fullscreenButton">Go Fullscreen</button>
+  </div>
+
+  <script>
+    const username = 'user'
+    //randomly generate a story id
+    let story_id = 'story' + Math.floor(Math.random() * 1000000)
+
+    let noAuto = false
+
+    async function fetchChatData(userInput) {
+      const res = await fetch('/chat', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          user_input: userInput,
+          username: username,
+          story_id: story_id
+        })
+      })
+
+      if (!res.ok && res.status === 500) {
+        // Retry after 1 second if a 500 status code is returned
+        return new Promise((resolve) => {
+          setTimeout(() => resolve(fetchChatData(userInput)), 1000);
+        });
+      } else {
+        return res.json();
+      }
+    }
+
+    function setOption(optionText,resetAuto) {
+
+      console.log('huh',resetAuto)
+
+      if(resetAuto){
+        noAuto = false
+      }
+
+      document.getElementById('user-input').value = optionText
+      hideOptionButtons()
+      sendMessage(optionText)
+    }
+
+    function sendMessage0() {
+      const userInput = document.getElementById('user-input').value
+      sendMessage(userInput)
+    }
+
+    function sendMessage1() {
+      const userInput = document.getElementById('text-input').value
+      sendMessage(userInput)
+      hideOptionButtons()
+    }
+
+    let autoTimeout = null
+
+    async function sendMessage(userInput) {
+
+      //clear auto timeout (if it not null)
+      if (autoTimeout) {
+        clearTimeout(autoTimeout)
+      }
+
+      //set chosen option
+      document.getElementById('chosen-option').textContent = userInput
+      //show chosen option
+      document.getElementById('chosen-option').style.display = 'block'
+
+      const chatArea = document.getElementById('chat-area')
+
+      //add user input to chat area
+      const userDiv = document.createElement('div')
+      userDiv.textContent = 'USER: ' + userInput
+      //userDiv.style.textAlign = "right";
+      chatArea.appendChild(userDiv)
+
+      const thinkingDiv = document.createElement('div')
+      thinkingDiv.textContent = 'Thinking...'
+      chatArea.appendChild(thinkingDiv)
+      console.log('added thinking div')
+
+      const data = await fetchChatData(userInput)
+
+      const descriptionDiv = document.createElement('div')
+      descriptionDiv.textContent = data.sceneAction
+      chatArea.appendChild(descriptionDiv)
 
 
-        const username = "user"
-        //randomly generate a story id
-        const story_id = "story" + Math.floor(Math.random() * 1000000);
+      if (data.image_path) {
+        const img = document.createElement('img')
+        img.src = data.image_path
+        //set alt text as data.image
+        img.alt = data.imageDescription
+        //we probably need do do somethign to display the text when user hovers over it too
+        img.title = data.imageDescription
+
+        chatArea.appendChild(img)
+      }
+
+      const optionsArea = document.getElementById('options-area')
+      optionsArea.innerHTML = '' // Clear previous options
+
+      showOptionButtons()
+
+      data.options.forEach((option) => {
+        const optionButton = document.createElement('button')
+        optionButton.textContent = option
+        optionButton.onclick = () => setOption(option,true)
+        optionsArea.appendChild(optionButton)
+        //add a class to the button so we can find it later
+        optionButton.classList.add('option-button')
+      })
+
+      document.getElementById('user-input').value = '' // Clear the textbox
+
+      //clear text-area
+      document.getElementById('text-input').value = '' // Clear the textbox
+
+      chatArea.removeChild(thinkingDiv) // Remove the "thinking" symbol
+
+      //scroll to bottom
+      console.log('scrolling to bottom')
+      setTimeout(() => {
+        window.scrollTo(0, document.body.scrollHeight) // Scroll to the bottom of the page
+      }, 100)
+
+      //show movie area
+      document.getElementById('movie-area').style.display = 'block'
+
+      //hide chosen option
+      document.getElementById('chosen-option').style.display = 'none'
 
 
-        async function fetchChatData(userInput) {
-            const res = await fetch('/chat', {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    user_input: userInput,
-                    username: username,
-                    story_id: story_id
-                })
-            });
-            return res.json();
+      if (data.video_path) {
+        // Update video source
+        let movie = document.querySelector('#movie')
+        let movieSource = document.querySelector('#movie source')
+        movieSource.src = data.video_path.replace(/\\/g, '/')
+
+        movie.load()
+        movie.oncanplaythrough = function () {
+          movie.play()
         }
 
-        function setOption(optionText) {
-            document.getElementById("user-input").value = optionText;
-            sendMessage();
+        movie.onended = function () {
+          fetch('/get_video/') // Replace 'prompt' with the actual prompt
+            .then((response) => response.json())
+            .then((data) => {
+              let movieSource = document.querySelector('#movie source')
+              movieSource.src = data.video_path.replace(/\\/g, '/')
+              movie.load()
+              movie.oncanplaythrough = function () {
+                movie.play()
+              }
+            })
         }
+      }
 
-        async function sendMessage() {
-            const userInput = document.getElementById("user-input").value;
+      if (data.music_path) {
 
-
-            const chatArea = document.getElementById("chat-area");
-
-            //add user input to chat area
-            const userDiv = document.createElement("div");
-            userDiv.textContent = "USER: "+userInput;
-            //userDiv.style.textAlign = "right";
-            chatArea.appendChild(userDiv);
-
-
-            const thinkingDiv = document.createElement("div");
-            thinkingDiv.textContent = "Thinking...";
-            chatArea.appendChild(thinkingDiv);
-            console.log('added thinking div')
-
-
-
-            const data = await fetchChatData(userInput);
-
-
-
-
-            const descriptionDiv = document.createElement("div");
-            descriptionDiv.textContent = data.sceneDescription;
-            chatArea.appendChild(descriptionDiv);
-
-            const img = document.createElement("img");
-            img.src = data.image_path;
-            //set alt text as data.image
-            img.alt = data.imageDescription;
-            //we probably need do do somethign to display the text when user hovers over it too
-            img.title = data.imageDescription;
-
-            chatArea.appendChild(img);
-
-            const optionsArea = document.getElementById("options-area");
-            optionsArea.innerHTML = ""; // Clear previous options
-
-            data.options.forEach(option => {
-                const optionButton = document.createElement("button");
-                optionButton.textContent = option;
-                optionButton.onclick = () => setOption(option);
-                optionsArea.appendChild(optionButton);
-            });
-
-            document.getElementById("user-input").value = ""; // Clear the textbox
-
-            chatArea.removeChild(thinkingDiv); // Remove the "thinking" symbol
-
-
-            //scroll to bottom
-            console.log('scrolling to bottom')
-            setTimeout(() => {
-                window.scrollTo(0, document.body.scrollHeight); // Scroll to the bottom of the page
-            }, 100);
+        // Update music source
+        let music = document.querySelector('#music')
+        let musicSource = document.querySelector('#music source')
+        musicSource.src = data.music_path.replace(/\\/g, '/')
+        music.loop = true
+        music.load()
+        music.oncanplaythrough = function () {
+          music.play()
         }
+      } else {
+        //fetch music
+        fetchAndSetMusicSource(data.musicDescription)
+      }
 
-    </script>
+      // Update speech source
+      let speech = document.querySelector('#speech')
+      let speechSource = document.querySelector('#speech source')
+      speechSource.src = data.speech_path.replace(/\\/g, '/')
+      speech.load()
+      speech.oncanplaythrough = function () {
+        speech.play()
+      }
+
+      // Update option buttons
+      data.options.forEach((option, index) => {
+        let button = document.getElementById(`option${index + 1}`)
+        button.textContent = option
+        button.onclick = function () {
+          setOption(option,true)
+        }
+      })
+
+
+      // Update caption
+      let caption = document.getElementById('movie-caption')
+      caption.textContent = data.sceneAction
+
+    }
+
+    // Function to show all option buttons
+    function showOptionButtons() {
+      let optionsArea = document.getElementById('options-area')
+      Array.from(optionsArea.children).forEach((child) => {
+        child.style.display = 'block'
+      })
+
+      for (let i = 1; i <= 3; i++) {
+        let button = document.getElementById(`option${i}`)
+        if (button) {
+          button.style.display = 'block'
+        }
+      }
+    }
+
+    // Function to hide all option buttons
+    function hideOptionButtons() {
+      let optionsArea = document.getElementById('options-area')
+      Array.from(optionsArea.children).forEach((child) => {
+        child.style.display = 'none'
+      })
+
+      for (let i = 1; i <= 3; i++) {
+        let button = document.getElementById(`option${i}`)
+        if (button) {
+          button.style.display = 'none'
+        }
+      }
+
+      //also hide text input
+      document.getElementById('text-input').style.display = 'none'
+    }
+
+    function fetchAndSetMusicSource(musicDescription) {
+      let formData = new FormData();
+      formData.append('musicDescription', musicDescription);
+
+      fetch('/get_music', {
+        method: 'POST',
+        body: formData
+      })
+        .then((response) => response.json())
+        .then((data) => {
+          let music = document.querySelector('#music')
+          let musicSource = document.querySelector('#music source')
+          musicSource.src = data.music_path.replace(/\\/g, '/')
+          music.loop = true
+          music.load()
+          music.oncanplaythrough = function () {
+            music.play()
+          }
+        })
+    }
+
+
+    // Define the event listener function
+    function handleKeypress(event) {
+      let userInput = document.getElementById('user-input')
+      if (document.activeElement !== userInput) {
+        if (event.key === '1') {
+          setOption(document.getElementById('option1').textContent)
+        } else if (event.key === '2') {
+          setOption(document.getElementById('option2').textContent)
+        } else if (event.key === '3') {
+          setOption(document.getElementById('option3').textContent)
+        } else if (event.key === '4') {
+          //noauto
+          noAuto = true
+          //show text input
+          document.getElementById('text-input').style.display = 'block'
+          //set focus to text input
+          document.getElementById('text-input').focus()
+        } else if (event.key === '5') {
+          //hide text input
+          async function sendRandomizedMessage() {
+
+            noAuto = true
+
+            //clear auto timeout (if it not null)
+            if (autoTimeout) {
+              clearTimeout(autoTimeout)
+            }
+
+            //randomize story-id
+            story_id = 'story' + Math.floor(Math.random() * 1000000)
+
+            let prompt
+
+            await fetch('/get_prompt/')
+              .then(response => response.json())
+              .then(data => {
+                document.getElementById('user-input').value = data.prompt;
+                prompt = data.prompt
+              });
+
+            //hide options
+            hideOptionButtons()
+
+            sendMessage(prompt);
+          }
+
+          // Call the function
+          sendRandomizedMessage();
+        }
+      }
+    }
+
+    document.addEventListener('keypress', handleKeypress)
+
+    document.getElementById('fullscreenButton').addEventListener('click', function () {
+      let holder = document.getElementById('movie-and-options-holder')
+      let movie = document.getElementById('movie')
+      let buttons = document.querySelectorAll('#movie-area-options button')
+      holder.classList.add('fullscreen')
+      if (holder.requestFullscreen) {
+        holder.requestFullscreen()
+      } else if (holder.mozRequestFullScreen) {
+        /* Firefox */
+        holder.mozRequestFullScreen()
+      } else if (holder.webkitRequestFullscreen) {
+        /* Chrome, Safari and Opera */
+        holder.webkitRequestFullscreen()
+      } else if (holder.msRequestFullscreen) {
+        /* IE/Edge */
+        holder.msRequestFullscreen()
+      }
+      movie.style.width = holder.clientWidth + 'px'
+      movie.style.height = holder.clientHeight + 'px'
+      buttons.forEach((button) => {
+        button.style.fontSize = '1.5em' // Adjust as needed
+      })
+
+      //also make font bigger for text input
+      document.getElementById('text-input').style.fontSize = '1.5em'
+
+      //also make font bigger for caption
+      document.getElementById('movie-caption').style.fontSize = '1.5em'
+
+      //also make font bigger for chosen option
+      document.getElementById('chosen-option').style.fontSize = '1.5em'
+
+      //make "text-input" half of the screen in width
+      document.getElementById('text-input').style.width = '100%'
+
+
+
+      window.addEventListener('resize', function () {
+        movie.style.width = holder.clientWidth + 'px'
+        movie.style.height = holder.clientHeight + 'px'
+      })
+    })
+
+    document.addEventListener('fullscreenchange', function () {
+      let holder = document.getElementById('movie-and-options-holder')
+      let movie = document.getElementById('movie')
+      let buttons = document.querySelectorAll('#movie-area-options button')
+      if (!document.fullscreenElement) {
+        holder.classList.remove('fullscreen')
+        movie.style.width = '768px' // Reset to original size
+        movie.style.height = '424px' // Reset to original size
+        buttons.forEach((button) => {
+          button.style.fontSize = '1em' // Reset to original size
+        })
+        //also reset font size for text input
+        document.getElementById('text-input').style.fontSize = '1em'
+        //also reset font size for caption
+        document.getElementById('movie-caption').style.fontSize = '1em'
+        //also reset font size for chosen option
+        document.getElementById('chosen-option').style.fontSize = '1em'
+
+        //reset "text-input" to 400px
+        document.getElementById('text-input').style.width = '400px'
+      }
+    })
+
+    //don't pause movie on clicklet movie = document.getElementById('movie');
+    movie.onclick = function (event) {
+      event.preventDefault()
+    }
+
+
+    //fetch example prompt
+    window.onload = function () {
+      fetch('/get_prompt/')
+        .then(response => response.json())
+        .then(data => {
+          document.getElementById('user-input').value = data.prompt;
+        });
+    };
+
+    //randomize story id
+    async function randomizeStoryId() {
+
+      noAuto = true
+
+      // Randomize story_id here
+      story_id = 'story' + Math.floor(Math.random() * 1000000)
+
+      //clear auto timeout (if it not null)
+      if (autoTimeout) {
+        clearTimeout(autoTimeout)
+      }
+
+      //clear chat-area
+      document.getElementById('chat-area').innerHTML = ''
+
+      //hide movie area
+      document.getElementById('movie-area').style.display = 'none'
+
+      //pause video and music
+      let movie = document.getElementById('movie')
+      let music = document.getElementById('music')
+      let speech = document.getElementById('speech')
+      movie.pause()
+      music.pause()
+      speech.pause()
+
+      //hide option buttons
+      hideOptionButtons()
+
+      await fetch('/get_prompt/')
+        .then(response => response.json())
+        .then(data => {
+          document.getElementById('user-input').value = data.prompt;
+        });
+
+      return document.getElementById('user-input').value
+    }
+
+    document.addEventListener('keydown', function(event) {
+      if (event.key === 'r') {  // Change 'r' to whatever key you want to use
+          console.log('Replaying speech');
+          let speech = document.getElementById('speech');
+          speech.play();  // Replace this with the function to replay speech
+      }
+  });
+
+  let auto = document.getElementById('auto'); // Replace 'auto' with the actual ID of your checkbox
+  speech.addEventListener('ended', function() {
+
+    if(noAuto){
+      return
+    }
+
+    let options = document.getElementsByClassName('option-button'); // Replace 'option' with the actual class of your options
+
+    //check if movie-area is visible
+    let movieArea = document.getElementById('movie-area');
+    if (movieArea.style.display === 'none') {
+      console.log('Movie area is not visible');
+      return;
+    }
+
+    if (auto.checked) {
+      autoTimeout= setTimeout(function() {
+        let randomOption = options[Math.floor(Math.random() * options.length)];
+        let optionText = randomOption.textContent;
+        console.log('Auto selecting option', optionText);
+        setOption(optionText);
+
+      }, 5000);
+    }else{
+      console.log('Auto is not checked');
+    }
+  });
+
+  document.addEventListener('fullscreenchange', function() {
+    if (!document.fullscreenElement) {
+      noAuto = true;
+      console.log('Exited fullscreen, setting noAuto to true');
+    }
+  });
+
+
+
+  </script>
 </body>
 
 </html>
